@@ -72,17 +72,17 @@ class CXPartnershipSurvey(TapQualtricsStream):
         th.Property("EndDate", th.StringType),
         th.Property("Status", th.StringType),
         th.Property("IPAddress", th.StringType),
-        th.Property("Progress", th.StringType),
-        th.Property("Duration_in_seconds", th.StringType),
-        th.Property("Finished", th.StringType),
+        th.Property("Progress", th.NumberType),
+        th.Property("Duration_in_seconds", th.NumberType),
+        th.Property("Finished", th.BooleanType),
         th.Property("RecordedDate", th.StringType),
         th.Property("ResponseId", th.StringType),
         th.Property("RecipientLastName", th.StringType),
         th.Property("RecipientFirstName", th.StringType),
         th.Property("RecipientEmail", th.StringType),
         th.Property("ExternalReference", th.StringType),
-        th.Property("LocationLatitude", th.StringType),
-        th.Property("LocationLongitude", th.StringType),
+        th.Property("LocationLatitude", th.NumberType),
+        th.Property("LocationLongitude", th.NumberType),
         th.Property("DistributionChannel", th.StringType),
         th.Property("UserLanguage", th.StringType),
         th.Property("sfContactId", th.StringType),
@@ -121,18 +121,18 @@ class CXPartnershipSurvey(TapQualtricsStream):
         }
         while progressStatus != "complete" and progressStatus != "failed" and isFile is None:
             if isFile is None:
-                print("file not ready")
+                logging.info("file not ready")
             else:
-                print("progressStatus=", progressStatus)
+                logging.info("progressStatus=", progressStatus)
             requestCheckUrl = url + progressId
             requestCheckResponse = requests.request("GET", requestCheckUrl, headers=headers)
             try:
                 isFile = requestCheckResponse.json()["result"]["fileId"]
             except KeyError:
                 1==1
-            print(requestCheckResponse.json())
+            logging.info(requestCheckResponse.json())
             requestCheckProgress = requestCheckResponse.json()["result"]["percentComplete"]
-            print("Download is " + str(requestCheckProgress) + " complete")
+            logging.info("Download is " + str(requestCheckProgress) + " complete")
             progressStatus = requestCheckResponse.json()["result"]["status"]
 
         #step 2.1: Check for error
@@ -188,6 +188,13 @@ class CXPartnershipSurvey(TapQualtricsStream):
         # Replace spaces in column names with underscores
         df.columns = df.columns.str.replace(r'\(|\)', '', regex=True)
         df.columns = df.columns.str.replace(' ', '_')
+
+        # Find duplicate columns
+        duplicate_columns = df.columns[df.columns.duplicated(keep='first')]
+
+        # Drop the second instance of duplicate columns
+        df = df.drop(columns=duplicate_columns)
+
         data_dicts = df.apply(self._nest_question_cols, axis=1).tolist()
 
         return data_dicts
