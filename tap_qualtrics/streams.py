@@ -61,7 +61,7 @@ class CXPartnershipSurvey(TapQualtricsStream):
     
     name = "cxpartnershipsurvey" # Stream name 
     primary_keys = ["ResponseID"]
-    records_jsonpath = "$[*]" # https://jsonpath.com Use requests response json to identify the json path 
+    records_jsonpath = "$.[*]" # https://jsonpath.com Use requests response json to identify the json path 
     replication_key = None
     rest_method = "POST"
     #schema_filepath = SCHEMAS_DIR / "events.json"  # Optional: use schema_filepath with .json inside schemas/ 
@@ -210,4 +210,8 @@ class CXPartnershipSurvey(TapQualtricsStream):
         # Get the results after report has completed and convert formatted results
         results = self._get_survey_results(fileId, url)
 
+        logging.info('##PR## results')
+        logging.info(results)
+        logging.info('##PR## results - type')
+        logging.info(type(results))
         yield from extract_jsonpath(self.records_jsonpath, input=results)
