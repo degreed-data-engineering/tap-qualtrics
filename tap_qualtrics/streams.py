@@ -61,21 +61,21 @@ class CXPartnershipSurvey(TapQualtricsStream):
     
     name = "cxpartnershipsurvey" # Stream name 
     primary_keys = ["ResponseId"]
-    records_jsonpath = "$.*" # https://jsonpath.com Use requests response json to identify the json path 
+    records_jsonpath = "$[*]" # https://jsonpath.com Use requests response json to identify the json path 
     replication_key = None
     rest_method = "POST"
     #schema_filepath = SCHEMAS_DIR / "events.json"  # Optional: use schema_filepath with .json inside schemas/ 
 
     # Optional: If using schema_filepath, remove the propertyList schema method below
     schema = th.PropertiesList(
-        # th.Property("StartDate", th.StringType),
-        # th.Property("EndDate", th.StringType),
+        th.Property("StartDate", th.StringType),
+        th.Property("EndDate", th.StringType),
         th.Property("Status", th.StringType),
         th.Property("IPAddress", th.StringType),
         th.Property("Progress", th.NumberType),
         th.Property("Duration_in_seconds", th.NumberType),
         th.Property("Finished", th.BooleanType),
-        # th.Property("RecordedDate", th.StringType),
+        th.Property("RecordedDate", th.StringType),
         th.Property("ResponseId", th.StringType),
         th.Property("RecipientLastName", th.StringType),
         th.Property("RecipientFirstName", th.StringType),
@@ -178,7 +178,7 @@ class CXPartnershipSurvey(TapQualtricsStream):
 
         # Step 4: Unzipping the file
         zipfile.ZipFile(io.BytesIO(requestDownload.content)).extractall("MyQualtricsDownload")
-        print('Complete')
+
 
         # Step 4: Load the file into a pandas dataframe
         with zipfile.ZipFile(io.BytesIO(requestDownload.content)) as z:
