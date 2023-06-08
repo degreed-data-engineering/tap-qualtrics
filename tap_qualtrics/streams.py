@@ -93,7 +93,7 @@ class CXPartnershipSurvey(TapQualtricsStream):
         th.Property("SurveyID", th.StringType),
         th.Property("Country", th.StringType),
         th.Property("Survey_Language", th.StringType),
-        th.Property("Questions", th.StringType),        
+        # th.Property("Questions", th.StringType),        
     ).to_dict()
 
     def prepare_request_payload(
