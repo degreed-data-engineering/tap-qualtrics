@@ -60,22 +60,22 @@ class CXPartnershipSurvey(TapQualtricsStream):
         return path
     
     name = "cxpartnershipsurvey" # Stream name 
-    primary_keys = ["ResponseID"]
-    records_jsonpath = "$.[*]" # https://jsonpath.com Use requests response json to identify the json path 
+    primary_keys = ["ResponseId"]
+    records_jsonpath = "$.*" # https://jsonpath.com Use requests response json to identify the json path 
     replication_key = None
     rest_method = "POST"
     #schema_filepath = SCHEMAS_DIR / "events.json"  # Optional: use schema_filepath with .json inside schemas/ 
 
     # Optional: If using schema_filepath, remove the propertyList schema method below
     schema = th.PropertiesList(
-        th.Property("StartDate", th.StringType),
-        th.Property("EndDate", th.StringType),
+        # th.Property("StartDate", th.StringType),
+        # th.Property("EndDate", th.StringType),
         th.Property("Status", th.StringType),
         th.Property("IPAddress", th.StringType),
         th.Property("Progress", th.NumberType),
         th.Property("Duration_in_seconds", th.NumberType),
         th.Property("Finished", th.BooleanType),
-        th.Property("RecordedDate", th.StringType),
+        # th.Property("RecordedDate", th.StringType),
         th.Property("ResponseId", th.StringType),
         th.Property("RecipientLastName", th.StringType),
         th.Property("RecipientFirstName", th.StringType),
