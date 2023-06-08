@@ -91,7 +91,6 @@ class CXPartnershipSurvey(TapQualtricsStream):
         th.Property("RecipientFirstName", th.StringType),
         th.Property("RecipientLastName", th.StringType),
         th.Property("SurveyID", th.StringType),
-        th.Property("ResponseID", th.StringType),
         th.Property("Country", th.StringType),
         th.Property("Survey_Language", th.StringType),
         th.Property("Questions", th.StringType),        
