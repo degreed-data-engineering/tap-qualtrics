@@ -8,13 +8,13 @@ from singer_sdk import Tap, Stream
 from singer_sdk import typing as th
 
 from tap_qualtrics.streams import (
-    Events,
+    CXPartnershipSurvey,
 )
 
 PLUGIN_NAME = "tap-qualtrics"
 
 STREAM_TYPES = [ 
-    Events,
+    CXPartnershipSurvey,
 ]
 
 class TapQualtrics(Tap):
@@ -22,11 +22,9 @@ class TapQualtrics(Tap):
 
     name = "tap-qualtrics"
     config_jsonschema = th.PropertiesList(
-        th.Property("url_base", th.StringType, required=False, description="Url base for the source endpoint"),
-        th.Property("api_key", th.StringType, required=False, description="API key"),
-        th.Property("app_key", th.StringType, required=False, description="Application key"),
-        th.Property("api_token", th.StringType, required=False, description="api token for Basic auth"),
-        th.Property("start_date", th.StringType, required=False, description="start date for sync"),
+        th.Property("api_token", th.StringType, required=False, description="Url base for the source endpoint"),
+        th.Property("cx_partnership_survey", th.StringType, required=False, description="Url base for the source endpoint"),
+        th.Property("datacenter", th.StringType, required=False, description="Url base for the source endpoint"),
     ).to_dict()
 
     def discover_streams(self) -> List[Stream]:
