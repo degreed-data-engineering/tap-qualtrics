@@ -152,7 +152,7 @@ class CXPartnershipSurvey(TapQualtricsStream):
         for col, value in row.iteritems():
             # Check if the value is NaN, and if it is, assign None
             if pd.isnull(value):
-                value = 'None'
+                value = None
 
             # If the column starts with 'Q', add it to the 'questions' dictionary
             if str(col).startswith('Q'):
