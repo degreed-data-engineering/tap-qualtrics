@@ -5,6 +5,7 @@ import sys
 import zipfile
 import pandas as pd
 import io
+from datetime import datetime
 
 import base64
 import json
@@ -49,7 +50,7 @@ class TapQualtricsStream(RESTStream):
         
         return SimpleAuthenticator(stream=self, auth_headers=http_headers)
 
-class CXPartnershipSurvey(TapQualtricsStream):
+class SurveyResponses(TapQualtricsStream):
     def __init__(self, tap: Tap):
         super().__init__(tap)
         self.logger = logging.getLogger(__name__)
@@ -59,10 +60,19 @@ class CXPartnershipSurvey(TapQualtricsStream):
         path = "/API/v3/surveys/{}/export-responses/".format(self.config["cx_partnership_survey"])
         return path
     
-    name = "cxpartnershipsurvey" # Stream name 
+    @property
+    def start_time(self) -> str:
+        # Get the current date and time
+        now = datetime.utcnow()
+        # Format the date and time
+        formatted_now = now.strftime('%Y-%m-%dT%H:%M:%SZ')
+        return formatted_now
+
+
+    name = "surveyresponses" # Stream name 
     primary_keys = ["ResponseId"]
     records_jsonpath = "$[*]" # https://jsonpath.com Use requests response json to identify the json path 
-    replication_key = None
+    replication_key = "survey_export_date"
     rest_method = "POST"
     #schema_filepath = SCHEMAS_DIR / "events.json"  # Optional: use schema_filepath with .json inside schemas/ 
 
@@ -93,17 +103,38 @@ class CXPartnershipSurvey(TapQualtricsStream):
         th.Property("SurveyID", th.StringType),
         th.Property("Country", th.StringType),
         th.Property("Survey_Language", th.StringType),
-        th.Property("Questions", th.StringType),        
+        th.Property("Questions", th.StringType),  
+        th.Property("survey_export_date", th.StringType),        
     ).to_dict()
 
     def prepare_request_payload(
         self, context: Optional[dict], next_page_token: Optional[Any]
     ) -> Optional[dict]:
-        payload = {
-            "format": "csv",
-            # "startDate": "2023-04-20T21:46:30Z", # TODO: add replication value
-            "useLabels": True,
-        }
+        
+
+        if "replication_key_value" not in self.stream_state:
+            logging.info("##PR## NO STATE, PULLING START DATE FROM CONFIG")
+            # Convert the date string to a datetime object
+            date_obj = datetime.strptime(self.config.get("start_date"), '%Y-%m-%d')
+
+            # Convert the datetime object to a string in the desired format
+            formatted_date = date_obj.strftime('%Y-%m-%dT%H:%M:%SZ')
+
+            logging.info("##PR## FORMATTED_DATE")
+            logging.info(formatted_date)
+            payload = {
+                "format": "csv",
+                "startDate": formatted_date,
+                "useLabels": True,
+            }
+        else:
+            logging.info("##PR## FOUND STATE, PULLING START DATE FROM STATE")
+            payload = {
+                "format": "csv",
+                "startDate": self.stream_state['replication_key_value'],  
+                "useLabels": True,
+            }
+
         return payload
 
     def _check_progress(self, row, url):
@@ -136,7 +167,7 @@ class CXPartnershipSurvey(TapQualtricsStream):
             progressStatus = requestCheckResponse.json()["result"]["status"]
 
         #step 2.1: Check for error
-        if progressStatus is "failed":
+        if progressStatus == "failed":
             raise Exception("export failed")
 
         fileId = requestCheckResponse.json()["result"]["fileId"]
@@ -188,6 +219,7 @@ class CXPartnershipSurvey(TapQualtricsStream):
         # Replace spaces in column names with underscores
         df.columns = df.columns.str.replace(r'\(|\)', '', regex=True)
         df.columns = df.columns.str.replace(' ', '_')
+        df.columns = df.columns.str.replace(r"[\'\.?!]", '_', regex=True)
 
         # Find duplicate columns
         duplicate_columns = df.columns[df.columns.duplicated(keep='first')]
@@ -215,3 +247,8 @@ class CXPartnershipSurvey(TapQualtricsStream):
         logging.info('##PR## results - type')
         logging.info(type(results))
         yield from extract_jsonpath(self.records_jsonpath, input=results)
+
+
+    def post_process(self, row: dict, context: Optional[dict]) -> dict:
+        row["survey_export_date"] = self.start_time            
+        return row
