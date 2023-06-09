@@ -68,15 +68,12 @@ class SurveyResponses(TapQualtricsStream):
         formatted_now = now.strftime('%Y-%m-%dT%H:%M:%SZ')
         return formatted_now
 
-
     name = "surveyresponses" # Stream name 
     primary_keys = ["ResponseId"]
     records_jsonpath = "$[*]" # https://jsonpath.com Use requests response json to identify the json path 
     replication_key = "survey_export_date"
     rest_method = "POST"
-    #schema_filepath = SCHEMAS_DIR / "events.json"  # Optional: use schema_filepath with .json inside schemas/ 
 
-    # Optional: If using schema_filepath, remove the propertyList schema method below
     schema = th.PropertiesList(
         th.Property("StartDate", th.StringType),
         th.Property("EndDate", th.StringType),
@@ -110,7 +107,6 @@ class SurveyResponses(TapQualtricsStream):
     def prepare_request_payload(
         self, context: Optional[dict], next_page_token: Optional[Any]
     ) -> Optional[dict]:
-        
 
         if "replication_key_value" not in self.stream_state:
             logging.info("##PR## NO STATE, PULLING START DATE FROM CONFIG")
@@ -120,15 +116,12 @@ class SurveyResponses(TapQualtricsStream):
             # Convert the datetime object to a string in the desired format
             formatted_date = date_obj.strftime('%Y-%m-%dT%H:%M:%SZ')
 
-            logging.info("##PR## FORMATTED_DATE")
-            logging.info(formatted_date)
             payload = {
                 "format": "csv",
                 "startDate": formatted_date,
                 "useLabels": True,
             }
         else:
-            logging.info("##PR## FOUND STATE, PULLING START DATE FROM STATE")
             payload = {
                 "format": "csv",
                 "startDate": self.stream_state['replication_key_value'],  
@@ -242,10 +235,6 @@ class SurveyResponses(TapQualtricsStream):
         # Get the results after report has completed and convert formatted results
         results = self._get_survey_results(fileId, url)
 
-        logging.info('##PR## results')
-        logging.info(results)
-        logging.info('##PR## results - type')
-        logging.info(type(results))
         yield from extract_jsonpath(self.records_jsonpath, input=results)
 
 
