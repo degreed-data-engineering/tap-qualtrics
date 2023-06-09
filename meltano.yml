@@ -11,7 +11,11 @@ plugins:
     - catalog
     - discover
     config:
-      start_date: '2022-10-05T00:00:00Z'
+      api_token: $TAP_QUALTRICS_API_TOKEN
+      survey: "survey_name"
+      survey_id: "abcdefg123!"
+      datacenter: "abc"
+      start_date: "2022-10-05" 
   loaders:
   - name: target-jsonl
     variant: andyh1203

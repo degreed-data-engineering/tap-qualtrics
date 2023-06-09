@@ -57,7 +57,7 @@ class SurveyResponses(TapQualtricsStream):
 
     @property
     def path(self) -> str:
-        path = "/API/v3/surveys/{}/export-responses/".format(self.config["cx_partnership_survey"])
+        path = "/API/v3/surveys/{}/export-responses/".format(self.config["survey_id"])
         return path
     
     @property
@@ -75,6 +75,7 @@ class SurveyResponses(TapQualtricsStream):
     rest_method = "POST"
 
     schema = th.PropertiesList(
+        th.Property("SurveyName", th.StringType),
         th.Property("StartDate", th.StringType),
         th.Property("EndDate", th.StringType),
         th.Property("Status", th.StringType),
@@ -201,7 +202,7 @@ class SurveyResponses(TapQualtricsStream):
         requestDownload = requests.request("GET", requestDownloadUrl, headers=headers, stream=True)
 
         # Step 4: Unzipping the file
-        zipfile.ZipFile(io.BytesIO(requestDownload.content)).extractall("MyQualtricsDownload")
+        zipfile.ZipFile(io.BytesIO(requestDownload.content)).extractall("QualtricsSurveyResponses")
 
 
         # Step 4: Load the file into a pandas dataframe
@@ -234,10 +235,11 @@ class SurveyResponses(TapQualtricsStream):
 
         # Get the results after report has completed and convert formatted results
         results = self._get_survey_results(fileId, url)
-
+        logging.info(results)
         yield from extract_jsonpath(self.records_jsonpath, input=results)
 
 
     def post_process(self, row: dict, context: Optional[dict]) -> dict:
-        row["survey_export_date"] = self.start_time            
+        row["survey_export_date"] = self.start_time     
+        row["SurveyName"] = self.config.get("survey")         
         return row
