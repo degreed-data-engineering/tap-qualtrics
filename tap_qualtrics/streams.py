@@ -1,6 +1,5 @@
 """Stream class for tap-qualtrics."""
 
-import backoff
 import logging
 import sys
 import zipfile
