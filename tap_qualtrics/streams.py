@@ -1,10 +1,12 @@
 """Stream class for tap-qualtrics."""
 
+import backoff
 import logging
 import sys
 import zipfile
 import pandas as pd
 import io
+import time 
 from datetime import datetime
 
 import base64
@@ -131,6 +133,7 @@ class SurveyResponses(TapQualtricsStream):
 
         return payload
 
+    
     def _check_progress(self, row, url):
         row = json.loads(row)
         progressId = row["result"]["progressId"]
@@ -144,9 +147,10 @@ class SurveyResponses(TapQualtricsStream):
             "content-type": "application/json",
             "x-api-token": self.config.get("api_token"),
         }
+
         while progressStatus != "complete" and progressStatus != "failed" and isFile is None:
             if isFile is None:
-                logging.info("file not ready")
+                logging.info("file not ready. Checking again in 20 seconds")
             else:
                 logging.info("progressStatus=", progressStatus)
             requestCheckUrl = url + progressId
@@ -159,6 +163,9 @@ class SurveyResponses(TapQualtricsStream):
             requestCheckProgress = requestCheckResponse.json()["result"]["percentComplete"]
             logging.info("Download is " + str(requestCheckProgress) + " complete")
             progressStatus = requestCheckResponse.json()["result"]["status"]
+
+            # Wait for 60 seconds before the next check
+            time.sleep(20)
 
         #step 2.1: Check for error
         if progressStatus == "failed":
