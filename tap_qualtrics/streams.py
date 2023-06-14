@@ -83,7 +83,7 @@ class SurveyResponses(TapQualtricsStream):
         th.Property("IPAddress", th.StringType),
         th.Property("Progress", th.StringType),
         th.Property("Duration_in_seconds", th.StringType),
-        th.Property("Finished", th.BooleanType),
+        th.Property("Finished", th.StringType),
         th.Property("RecordedDate", th.StringType),
         th.Property("ResponseId", th.StringType),
         th.Property("RecipientLastName", th.StringType),
@@ -103,7 +103,8 @@ class SurveyResponses(TapQualtricsStream):
         th.Property("Country", th.StringType),
         th.Property("Survey_Language", th.StringType),
         th.Property("Questions", th.StringType),  
-        th.Property("survey_export_date", th.StringType),        
+        th.Property("survey_export_date", th.StringType),  
+        th.Property("OrganizationID", th.StringType),        
     ).to_dict()
 
     def prepare_request_payload(
@@ -111,7 +112,7 @@ class SurveyResponses(TapQualtricsStream):
     ) -> Optional[dict]:
 
         if "replication_key_value" not in self.stream_state:
-            logging.info("##PR## NO STATE, PULLING START DATE FROM CONFIG")
+            logging.info("Using start_date from config")
             # Convert the date string to a datetime object
             date_obj = datetime.strptime(self.config.get("start_date"), '%Y-%m-%d')
 
@@ -124,6 +125,7 @@ class SurveyResponses(TapQualtricsStream):
                 "useLabels": True,
             }
         else:
+            logging.info("Using start date from state")
             payload = {
                 "format": "csv",
                 "startDate": self.stream_state['replication_key_value'],  
@@ -164,7 +166,7 @@ class SurveyResponses(TapQualtricsStream):
             progressStatus = requestCheckResponse.json()["result"]["status"]
 
             # Wait for 60 seconds before the next check
-            time.sleep(20)
+
 
         #step 2.1: Check for error
         if progressStatus == "failed":
@@ -214,7 +216,7 @@ class SurveyResponses(TapQualtricsStream):
         # Step 4: Load the file into a pandas dataframe
         with zipfile.ZipFile(io.BytesIO(requestDownload.content)) as z:
             with z.open(z.namelist()[0]) as f:
-                df = pd.read_csv(f, skiprows=[1, 2])
+                df = pd.read_csv(f, skiprows=[1, 2],low_memory=False, dtype={"ColumnName": str})
 
         # Replace spaces in column names with underscores
         df.columns = df.columns.str.replace(r'\(|\)', '', regex=True)
@@ -241,7 +243,7 @@ class SurveyResponses(TapQualtricsStream):
 
         # Get the results after report has completed and convert formatted results
         results = self._get_survey_results(fileId, url)
-        logging.info(results)
+        
         yield from extract_jsonpath(self.records_jsonpath, input=results)
 
 
