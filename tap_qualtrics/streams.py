@@ -207,37 +207,47 @@ class SurveyResponses(TapQualtricsStream):
         return data
     
 
-    def _get_survey_results(self, fileId, url):
-        headers = {
-            "content-type": "application/json",
-            "x-api-token": self.config.get("api_token"),
-        }
-        requestDownloadUrl = url + fileId + '/file'
-        requestDownload = requests.request("GET", requestDownloadUrl, headers=headers, stream=True)
+    # def _get_survey_results(self, fileId, url):
+    #     headers = {
+    #         "content-type": "application/json",
+    #         "x-api-token": self.config.get("api_token"),
+    #     }
+    #     requestDownloadUrl = url + fileId + '/file'
+    #     requestDownload = requests.request("GET", requestDownloadUrl, headers=headers, stream=True)
 
-        # Step 4: Unzipping the file
-        zipfile.ZipFile(io.BytesIO(requestDownload.content)).extractall("QualtricsSurveyResponses")
+    #     # Step 4: Unzipping the file
+    #     zipfile.ZipFile(io.BytesIO(requestDownload.content)).extractall("QualtricsSurveyResponses")
 
+    #     # Create a list to hold all the chunks
+    #     chunks_list = []
 
-        # Step 4: Load the file into a pandas dataframe
-        with zipfile.ZipFile(io.BytesIO(requestDownload.content)) as z:
-            with z.open(z.namelist()[0]) as f:
-                df = pd.read_csv(f, skiprows=[1, 2],low_memory=False, dtype={"ColumnName": str})
+    #     # Step 4: Load the file into a pandas dataframe in chunks
+    #     with zipfile.ZipFile(io.BytesIO(requestDownload.content)) as z:
+    #         with z.open(z.namelist()[0]) as f:
+    #             # Set chunksize parameter to specify the number of rows per chunk
+    #             chunksize = 100000
+    #             for chunk in pd.read_csv(f, skiprows=[1, 2], chunksize=chunksize, low_memory=False, dtype={"ColumnName": str}):
+    #                 # Replace spaces in column names with underscores
+    #                 chunk.columns = chunk.columns.str.replace(r'\(|\)', '', regex=True)
+    #                 chunk.columns = chunk.columns.str.replace(' ', '_')
+    #                 chunk.columns = chunk.columns.str.replace(r"[\'\.?!]", '_', regex=True)
 
-        # Replace spaces in column names with underscores
-        df.columns = df.columns.str.replace(r'\(|\)', '', regex=True)
-        df.columns = df.columns.str.replace(' ', '_')
-        df.columns = df.columns.str.replace(r"[\'\.?!]", '_', regex=True)
+    #                 # Find duplicate columns
+    #                 duplicate_columns = chunk.columns[chunk.columns.duplicated(keep='first')]
 
-        # Find duplicate columns
-        duplicate_columns = df.columns[df.columns.duplicated(keep='first')]
+    #                 # Drop the second instance of duplicate columns
+    #                 chunk = chunk.drop(columns=duplicate_columns)
 
-        # Drop the second instance of duplicate columns
-        df = df.drop(columns=duplicate_columns)
+    #                 # Convert the chunk to a list of dictionaries and add it to the list
+    #                 data_dicts = chunk.apply(self._nest_question_cols, axis=1).tolist()
+    #                 chunks_list.append(data_dicts)
 
-        data_dicts = df.apply(self._nest_question_cols, axis=1).tolist()
-
-        return data_dicts
+    #     # Flatten the list of chunks into a single list
+    #     results = [item for sublist in chunks_list for item in sublist]
+        
+    #     logging.info("results df")
+    #     logging.info(results)
+    #     return results
 
     
     def parse_response(self, response: requests.Response) -> Iterable[dict]:
@@ -249,11 +259,72 @@ class SurveyResponses(TapQualtricsStream):
         fileId = self._check_progress(response.text, url)
 
         # Get the results after report has completed and convert formatted results
-        results = self._get_survey_results(fileId, url)
+        #results = self._get_survey_results(fileId, url)
         
+
+
+        headers = {
+            "content-type": "application/json",
+            "x-api-token": self.config.get("api_token"),
+        }
+        requestDownloadUrl = url + fileId + '/file'
+        requestDownload = requests.request("GET", requestDownloadUrl, headers=headers, stream=True)
+
+        # Step 4: Unzipping the file
+        zipfile.ZipFile(io.BytesIO(requestDownload.content)).extractall("QualtricsSurveyResponses")
+
+        # Create a list to hold all the chunks
+        chunks_list = []
+        total_chunks = 0
+        # Step 4: Load the file into a pandas dataframe in chunks
+        with zipfile.ZipFile(io.BytesIO(requestDownload.content)) as z:
+            with z.open(z.namelist()[0]) as f:
+                # Set chunksize parameter to specify the number of rows per chunk
+                chunksize = 10000
+                for chunk in pd.read_csv(f, skiprows=[1, 2], chunksize=chunksize, low_memory=False, dtype={"ColumnName": str}):
+                    # Replace spaces in column names with underscores
+                    chunk.columns = chunk.columns.str.replace(r'\(|\)', '', regex=True)
+                    chunk.columns = chunk.columns.str.replace(' ', '_')
+                    chunk.columns = chunk.columns.str.replace(r"[\'\.?!]", '_', regex=True)
+
+                    # Find duplicate columns
+                    duplicate_columns = chunk.columns[chunk.columns.duplicated(keep='first')]
+
+                    # Drop the second instance of duplicate columns
+                    chunk = chunk.drop(columns=duplicate_columns)
+
+                    # Convert the chunk to a list of dictionaries and add it to the list
+                    data_dicts = chunk.apply(self._nest_question_cols, axis=1).tolist()
+                    #chunks_list.append(data_dicts)
+
+                    # logging.info("##PR## data_dicts")
+                    # logging.info(data_dicts)
+                    logging.info("Sending chunk of 10000")
+                    yield from extract_jsonpath(self.records_jsonpath, input=data_dicts)
+                    total_chunks = total_chunks + 10000
+                    logging.info(f"Total chunks sent: {total_chunks}")
+        # Flatten the list of chunks into a single list
+        # results = [item for sublist in chunks_list for item in sublist]
+        
+        # logging.info("results df")
+        # logging.info(results)
+
+
+
+
+
+
+
+
+
         # Yield from chunks of results, rather than results directly
-        for chunk in chunker(results, 100000):
-            yield from extract_jsonpath(self.records_jsonpath, input=chunk)
+        # total_chunks = 50000
+        # for chunk in chunker(results, 50000):
+        #     logging.info(f"extracting 50000. Total of {total_chunks}")
+            
+        #     total_chunks = total_chunks + 50000
+        #     yield from extract_jsonpath(self.records_jsonpath, input=chunk)
+            
 
 
         #yield from extract_jsonpath(self.records_jsonpath, input=results)
