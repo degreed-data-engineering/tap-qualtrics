@@ -26,6 +26,10 @@ logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
 SCHEMAS_DIR = Path(__file__).parent / Path("./schemas")
 
+def chunker(seq, size):
+        """Yield chunks of a sequence as lists."""
+        return (seq[pos:pos + size] for pos in range(0, len(seq), size))
+    
 class TapQualtricsStream(RESTStream):
     """Qualtrics stream class."""
     
@@ -151,7 +155,7 @@ class SurveyResponses(TapQualtricsStream):
 
         while progressStatus != "complete" and progressStatus != "failed" and isFile is None:
             if isFile is None:
-                logging.info("file not ready. Checking again in 20 seconds")
+                logging.info("file not ready. Checking again in 30 seconds")
             else:
                 logging.info("progressStatus=", progressStatus)
             requestCheckUrl = url + progressId
@@ -165,7 +169,9 @@ class SurveyResponses(TapQualtricsStream):
             logging.info("Download is " + str(requestCheckProgress) + " complete")
             progressStatus = requestCheckResponse.json()["result"]["status"]
 
-            # Wait for 60 seconds before the next check
+    
+            # Wait for 30 seconds before the next check
+            time.sleep(30)
 
 
         #step 2.1: Check for error
@@ -233,6 +239,7 @@ class SurveyResponses(TapQualtricsStream):
 
         return data_dicts
 
+    
     def parse_response(self, response: requests.Response) -> Iterable[dict]:
         """Parse the response and return an iterator of result records."""
 
@@ -244,7 +251,12 @@ class SurveyResponses(TapQualtricsStream):
         # Get the results after report has completed and convert formatted results
         results = self._get_survey_results(fileId, url)
         
-        yield from extract_jsonpath(self.records_jsonpath, input=results)
+        # Yield from chunks of results, rather than results directly
+        for chunk in chunker(results, 100000):
+            yield from extract_jsonpath(self.records_jsonpath, input=chunk)
+
+
+        #yield from extract_jsonpath(self.records_jsonpath, input=results)
 
 
     def post_process(self, row: dict, context: Optional[dict]) -> dict:
