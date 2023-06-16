@@ -10,11 +10,14 @@ plugins:
     - state
     - catalog
     - discover
+    settings:
+    - name: stream_maps.surveyresponses.__alias__
+      value: $TAP_QUALTRICS_SURVEY # Survey Name
     config:
       api_token: $TAP_QUALTRICS_API_TOKEN
-      survey: "survey_name"
-      survey_id: "abcdefg123!"
-      datacenter: "abc"
+      survey: $TAP_QUALTRICS_SURVEY # Survey Name
+      survey_id: $TAP_QUALTRICS_SURVEY_ID # Survey ID
+      datacenter: abc
       start_date: "2022-10-05" 
   loaders:
   - name: target-jsonl
