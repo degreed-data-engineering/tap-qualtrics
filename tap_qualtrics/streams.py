@@ -1,6 +1,6 @@
 """Stream class for tap-qualtrics."""
-
 import logging
+import os
 import sys
 import zipfile
 import pandas as pd
@@ -137,7 +137,6 @@ class SurveyResponses(TapQualtricsStream):
             }
 
         return payload
-
     
     def _check_progress(self, row, url):
         row = json.loads(row)
@@ -169,10 +168,8 @@ class SurveyResponses(TapQualtricsStream):
             logging.info("Download is " + str(requestCheckProgress) + " complete")
             progressStatus = requestCheckResponse.json()["result"]["status"]
 
-    
-            # Wait for 30 seconds before the next check
+            # Wait for 30 seconds before the next check 
             time.sleep(30)
-
 
         #step 2.1: Check for error
         if progressStatus == "failed":
@@ -206,50 +203,6 @@ class SurveyResponses(TapQualtricsStream):
         # Return the 'data' dictionary (not converted to JSON)
         return data
     
-
-    # def _get_survey_results(self, fileId, url):
-    #     headers = {
-    #         "content-type": "application/json",
-    #         "x-api-token": self.config.get("api_token"),
-    #     }
-    #     requestDownloadUrl = url + fileId + '/file'
-    #     requestDownload = requests.request("GET", requestDownloadUrl, headers=headers, stream=True)
-
-    #     # Step 4: Unzipping the file
-    #     zipfile.ZipFile(io.BytesIO(requestDownload.content)).extractall("QualtricsSurveyResponses")
-
-    #     # Create a list to hold all the chunks
-    #     chunks_list = []
-
-    #     # Step 4: Load the file into a pandas dataframe in chunks
-    #     with zipfile.ZipFile(io.BytesIO(requestDownload.content)) as z:
-    #         with z.open(z.namelist()[0]) as f:
-    #             # Set chunksize parameter to specify the number of rows per chunk
-    #             chunksize = 100000
-    #             for chunk in pd.read_csv(f, skiprows=[1, 2], chunksize=chunksize, low_memory=False, dtype={"ColumnName": str}):
-    #                 # Replace spaces in column names with underscores
-    #                 chunk.columns = chunk.columns.str.replace(r'\(|\)', '', regex=True)
-    #                 chunk.columns = chunk.columns.str.replace(' ', '_')
-    #                 chunk.columns = chunk.columns.str.replace(r"[\'\.?!]", '_', regex=True)
-
-    #                 # Find duplicate columns
-    #                 duplicate_columns = chunk.columns[chunk.columns.duplicated(keep='first')]
-
-    #                 # Drop the second instance of duplicate columns
-    #                 chunk = chunk.drop(columns=duplicate_columns)
-
-    #                 # Convert the chunk to a list of dictionaries and add it to the list
-    #                 data_dicts = chunk.apply(self._nest_question_cols, axis=1).tolist()
-    #                 chunks_list.append(data_dicts)
-
-    #     # Flatten the list of chunks into a single list
-    #     results = [item for sublist in chunks_list for item in sublist]
-        
-    #     logging.info("results df")
-    #     logging.info(results)
-    #     return results
-
-    
     def parse_response(self, response: requests.Response) -> Iterable[dict]:
         """Parse the response and return an iterator of result records."""
 
@@ -259,10 +212,6 @@ class SurveyResponses(TapQualtricsStream):
         fileId = self._check_progress(response.text, url)
 
         # Get the results after report has completed and convert formatted results
-        #results = self._get_survey_results(fileId, url)
-        
-
-
         headers = {
             "content-type": "application/json",
             "x-api-token": self.config.get("api_token"),
@@ -271,14 +220,14 @@ class SurveyResponses(TapQualtricsStream):
         requestDownload = requests.request("GET", requestDownloadUrl, headers=headers, stream=True)
 
         # Step 4: Unzipping the file
-        zipfile.ZipFile(io.BytesIO(requestDownload.content)).extractall("QualtricsSurveyResponses")
+        zipfile.ZipFile(io.BytesIO(requestDownload.content)).extractall()
 
         # Create a list to hold all the chunks
-        chunks_list = []
         total_chunks = 0
         # Step 4: Load the file into a pandas dataframe in chunks
         with zipfile.ZipFile(io.BytesIO(requestDownload.content)) as z:
-            with z.open(z.namelist()[0]) as f:
+            filename = z.namelist()[0]
+            with z.open(filename) as f:
                 # Set chunksize parameter to specify the number of rows per chunk
                 chunksize = 10000
                 for chunk in pd.read_csv(f, skiprows=[1, 2], chunksize=chunksize, low_memory=False, dtype={"ColumnName": str}):
@@ -297,40 +246,24 @@ class SurveyResponses(TapQualtricsStream):
                     data_dicts = chunk.apply(self._nest_question_cols, axis=1).tolist()
                     #chunks_list.append(data_dicts)
 
-                    # logging.info("##PR## data_dicts")
-                    # logging.info(data_dicts)
-                    logging.info("Sending chunk of 10000")
+                    logging.info("Extracting batch of 10000 responses")
                     yield from extract_jsonpath(self.records_jsonpath, input=data_dicts)
                     total_chunks = total_chunks + 10000
-                    logging.info(f"Total chunks sent: {total_chunks}")
-        # Flatten the list of chunks into a single list
-        # results = [item for sublist in chunks_list for item in sublist]
+                    logging.info(f"Total responses extracted: {total_chunks}")
         
-        # logging.info("results df")
-        # logging.info(results)
-
-
-
-
-
-
-
-
-
-        # Yield from chunks of results, rather than results directly
-        # total_chunks = 50000
-        # for chunk in chunker(results, 50000):
-        #     logging.info(f"extracting 50000. Total of {total_chunks}")
-            
-        #     total_chunks = total_chunks + 50000
-        #     yield from extract_jsonpath(self.records_jsonpath, input=chunk)
-            
-
-
-        #yield from extract_jsonpath(self.records_jsonpath, input=results)
-
+        # delete the file at the end
+        try:
+            os.remove(filename)
+            logging.info(f"Deleted file: {filename}")
+        except FileNotFoundError:
+            logging.error(f"File not found: {filename}")
+        except PermissionError:
+            logging.error(f"Permission error while deleting file: {filename}")
+        except Exception as e:
+            logging.error(f"Unable to delete file {filename}. Reason: {e}")
 
     def post_process(self, row: dict, context: Optional[dict]) -> dict:
         row["survey_export_date"] = self.start_time     
         row["SurveyName"] = self.config.get("survey")         
         return row
+    
