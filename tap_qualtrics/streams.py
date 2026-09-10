@@ -22,7 +22,7 @@ import requests
 
 from singer_sdk import Tap, Stream
 
-logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+logging.basicConfig(stream=sys.stderr, level=logging.INFO)  # stdout is reserved for Singer messages
 
 SCHEMAS_DIR = Path(__file__).parent / Path("./schemas")
 
